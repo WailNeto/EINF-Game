@@ -1,9 +1,10 @@
 extends Node3D
 
-const WORLD_SIZE := 200.0
-const TERRAIN_STEPS := 160
+const AnimalScript := preload("res://scripts/animal.gd")
+const WORLD_SIZE := 280.0
+const TERRAIN_STEPS := 224
 const CHUNK_SIZE := 40.0
-const CLEARINGS := [Vector2(0, 0), Vector2(-18, -14), Vector2(0, -14), Vector2(18, -14), Vector2(0, 55)]
+const CLEARINGS := [Vector2(0, 0), Vector2(-18, -14), Vector2(0, -14), Vector2(18, -14), Vector2(34, -14)]
 const NEON_CYAN := Color(0.18, 0.88, 1.0)
 const NEON_AMBER := Color(1.0, 0.67, 0.25)
 
@@ -14,6 +15,7 @@ var seed := 42042
 var world_size := WORLD_SIZE
 var fossil_sites: Array[Node3D] = []
 var wildlife: Array[Node3D] = []
+var dinosaurs: Array[Node3D] = []
 var graphics_settings: Dictionary = {}
 var instance_chunks: Dictionary = {}
 var cullable_buildings: Array[Node3D] = []
@@ -23,18 +25,19 @@ var terrain_lod_far: Array[MeshInstance3D] = []
 var ground_material: ShaderMaterial
 var environment: Environment
 var sun: DirectionalLight3D
+var lab_switch_indicator: MeshInstance3D
 var vegetation_quality := -1
 var render_distance := 380.0
 
 
 func _ready() -> void:
 	noise.seed = seed
-	noise.frequency = 0.012
-	noise.fractal_octaves = 5
-	noise.fractal_lacunarity = 2.1
-	noise.fractal_gain = 0.48
-	mountain_noise.seed = seed + 917
-	mountain_noise.frequency = 0.007
+	noise.frequency = 0.008
+	noise.fractal_octaves = 4
+	noise.fractal_lacunarity = 2.0
+	noise.fractal_gain = 0.5
+	mountain_noise.seed = posmod(seed + 917, 2147483647)
+	mountain_noise.frequency = 0.0045
 	mountain_noise.fractal_octaves = 3
 	rng.seed = seed
 	_build_environment()
@@ -48,14 +51,14 @@ func _ready() -> void:
 
 
 func height_at(x: float, z: float) -> float:
-	var rolling := noise.get_noise_2d(x, z) * 13.0
+	var rolling := noise.get_noise_2d(x, z) * 5.2
 	var ridge := 1.0 - absf(mountain_noise.get_noise_2d(x, z))
-	var mountains := pow(maxf(ridge - 0.38, 0.0), 1.35) * 39.0
-	var height := rolling + mountains - 1.5
+	var mountains := pow(maxf(ridge - 0.57, 0.0), 1.5) * 12.0
+	var height := rolling + mountains - 0.6
 	var blend := 1.0
 	for clearing: Vector2 in CLEARINGS:
 		var distance := Vector2(x, z).distance_to(clearing)
-		var clearing_blend := smoothstep(10.0, 28.0, distance)
+		var clearing_blend := smoothstep(12.0, 34.0, distance)
 		blend = minf(blend, clearing_blend)
 	return height * blend
 
@@ -189,22 +192,21 @@ func _create_terrain_chunk_mesh(chunk_x: int, chunk_z: int, resolution: int, cen
 	var step := CHUNK_SIZE / float(resolution)
 	var origin_x := -WORLD_SIZE * 0.5 + chunk_x * CHUNK_SIZE
 	var origin_z := -WORLD_SIZE * 0.5 + chunk_z * CHUNK_SIZE
+	var row_size := resolution + 1
+	for z_index in range(row_size):
+		for x_index in range(row_size):
+			var x := origin_x + x_index * step
+			var z := origin_z + z_index * step
+			surface.set_normal(_terrain_normal(x, z))
+			surface.add_vertex(Vector3(x - center_x, height_at(x, z), z - center_z))
 	for z_index in range(resolution):
 		for x_index in range(resolution):
-			var x0 := origin_x + x_index * step
-			var x1 := x0 + step
-			var z0 := origin_z + z_index * step
-			var z1 := z0 + step
-			var a := Vector3(x0 - center_x, height_at(x0, z0), z0 - center_z)
-			var b := Vector3(x0 - center_x, height_at(x0, z1), z1 - center_z)
-			var c := Vector3(x1 - center_x, height_at(x1, z0), z0 - center_z)
-			var d := Vector3(x1 - center_x, height_at(x1, z1), z1 - center_z)
-			for vertex: Vector3 in [a, b, c, c, b, d]:
-				var world_x := vertex.x + center_x
-				var world_z := vertex.z + center_z
-				surface.set_normal(_terrain_normal(world_x, world_z))
-				surface.add_vertex(vertex)
-	surface.index()
+			var a := z_index * row_size + x_index
+			var b := a + row_size
+			var c := a + 1
+			var d := b + 1
+			for index: int in [a, b, c, c, b, d]:
+				surface.add_index(index)
 	return surface.commit()
 
 
@@ -233,7 +235,7 @@ func _build_paths() -> void:
 	_add_path(Vector2(-18, -14), Vector2(-9, -8))
 	_add_path(Vector2(0, -14), Vector2(0, -8))
 	_add_path(Vector2(18, -14), Vector2(9, -8))
-	_add_path(Vector2(0, 55), Vector2(0, 28))
+	_add_path(Vector2(34, -14), Vector2(17, -4))
 
 
 func _add_path(destination: Vector2, control: Vector2) -> void:
@@ -268,6 +270,76 @@ func _build_landmarks() -> void:
 	_add_building(Vector3(-18, height_at(-18, -14), -14), Vector3(14, 5.5, 11), Color(0.30, 0.39, 0.43), "MARKT")
 	_add_building(Vector3(0, height_at(0, -14), -14), Vector3(15, 7.5, 15), Color(0.25, 0.37, 0.43), "LABOR")
 	_add_building(Vector3(18, height_at(18, -14), -14), Vector3(18, 6.0, 18), Color(0.34, 0.42, 0.34), "ZOO")
+	_build_lab_switch()
+	_build_dinosaur_enclosure(Vector2(34, -14), 8.0)
+
+
+func _build_lab_switch() -> void:
+	var floor_height := height_at(0.0, -14.0)
+	_add_box_piece(self, Vector3(1.7, 0.9, 0.72), Vector3(0.0, floor_height + 0.45, -19.5), _material(Color(0.14, 0.2, 0.22), 0.38, 0.72), true)
+	_add_box_piece(self, Vector3(0.42, 0.48, 0.18), Vector3(0.0, floor_height + 1.14, -19.05), _material(Color(0.18, 0.24, 0.25), 0.45, 0.6), false)
+	var lever := MeshInstance3D.new()
+	var lever_mesh := CylinderMesh.new()
+	lever_mesh.top_radius = 0.045
+	lever_mesh.bottom_radius = 0.065
+	lever_mesh.height = 0.42
+	lever.mesh = lever_mesh
+	lever.position = Vector3(0.0, floor_height + 1.38, -18.93)
+	lever.rotation.x = deg_to_rad(-24.0)
+	lever.material_override = _material(Color(0.78, 0.55, 0.18), 0.36, 0.68)
+	add_child(lever)
+	lab_switch_indicator = MeshInstance3D.new()
+	var indicator_mesh := SphereMesh.new()
+	indicator_mesh.radius = 0.075
+	indicator_mesh.height = 0.15
+	lab_switch_indicator.mesh = indicator_mesh
+	lab_switch_indicator.position = Vector3(0.0, floor_height + 1.42, -18.88)
+	add_child(lab_switch_indicator)
+	set_lab_switch_state(false)
+	_add_interactable(Vector3(0.0, floor_height + 1.25, -18.35), "lab_switch")
+
+
+func set_lab_switch_state(enabled: bool) -> void:
+	if is_instance_valid(lab_switch_indicator):
+		lab_switch_indicator.material_override = _emissive_material(Color(0.24, 0.95, 0.48) if enabled else Color(1.0, 0.25, 0.12))
+
+
+func _build_dinosaur_enclosure(center: Vector2, radius: float) -> void:
+	var fence_material := _material(Color(0.26, 0.22, 0.15), 0.9)
+	var half_depth := radius
+	var half_width := radius
+	for side: float in [-1.0, 1.0]:
+		for z_side: float in [-1.0, 1.0]:
+			var post := MeshInstance3D.new()
+			var post_mesh := CylinderMesh.new()
+			post_mesh.top_radius = 0.12
+			post_mesh.bottom_radius = 0.2
+			post_mesh.height = 2.0
+			post.mesh = post_mesh
+			post.position = Vector3(center.x + side * half_width, height_at(center.x + side * half_width, center.y + z_side * half_depth) + 1.0, center.y + z_side * half_depth)
+			post.material_override = fence_material
+			add_child(post)
+	for z_side: float in [-1.0, 1.0]:
+		var beam_length := radius * 2.0 - (3.4 if z_side > 0.0 else 0.0)
+		var beam_offset := 0.0 if z_side < 0.0 else 1.7
+		for side: float in ([-1.0, 1.0] if z_side > 0.0 else [0.0]):
+			var beam := MeshInstance3D.new()
+			var mesh := BoxMesh.new()
+			mesh.size = Vector3(beam_length, 0.18, 0.22)
+			beam.mesh = mesh
+			var x := center.x + beam_offset * side
+			beam.position = Vector3(x, height_at(x, center.y + z_side * half_depth) + 1.0, center.y + z_side * half_depth)
+			beam.material_override = fence_material
+			add_child(beam)
+	for side: float in [-1.0, 1.0]:
+		var beam := MeshInstance3D.new()
+		var mesh := BoxMesh.new()
+		mesh.size = Vector3(0.18, 0.18, radius * 2.0)
+		beam.mesh = mesh
+		var x := center.x + side * half_width
+		beam.position = Vector3(x, height_at(x, center.y) + 1.0, center.y)
+		beam.material_override = fence_material
+		add_child(beam)
 
 
 func _add_building(origin: Vector3, size: Vector3, wall_color: Color, sign_text: String) -> void:
@@ -301,6 +373,21 @@ func _add_building(origin: Vector3, size: Vector3, wall_color: Color, sign_text:
 	_add_sign(building, sign_text, accent, Vector3(0, 3.65, entrance_depth + 0.55))
 	_add_interior_furnishing(building, kind, size, accent)
 	_add_building_light(building, size.y - 0.35, accent)
+	var ramp_size := Vector3(3.2, 0.12, 2.0)
+	var ramp_position := Vector3(0, 0.11, entrance_depth + 1.0)
+	var ramp_angle := atan(0.34 / 2.0)
+	var entrance_ramp := _box_piece(building, ramp_size, ramp_position, floor_material, false)
+	entrance_ramp.rotation.x = ramp_angle
+	var ramp_collision_body := StaticBody3D.new()
+	ramp_collision_body.name = "EntranceRampCollision"
+	ramp_collision_body.position = ramp_position
+	ramp_collision_body.rotation.x = ramp_angle
+	var ramp_collision := CollisionShape3D.new()
+	var ramp_shape := BoxShape3D.new()
+	ramp_shape.size = ramp_size
+	ramp_collision.shape = ramp_shape
+	ramp_collision_body.add_child(ramp_collision)
+	building.add_child(ramp_collision_body)
 	var front_position := Vector3(0, 1.2, entrance_depth + 1.8)
 	_add_interactable(origin + front_position, kind)
 	building.set_meta("entrance_local_position", front_position)
@@ -960,60 +1047,156 @@ func _add_lamp(position: Vector3, light_color: Color) -> void:
 
 func _spawn_fossils() -> void:
 	for index in range(55):
-		var x := rng.randf_range(-94, 94)
-		var z := rng.randf_range(-94, 94)
-		if _in_clearing(x, z, 24.0):
+		var x := rng.randf_range(-WORLD_SIZE * 0.46, WORLD_SIZE * 0.46)
+		var z := rng.randf_range(-WORLD_SIZE * 0.46, WORLD_SIZE * 0.46)
+		if _in_clearing(x, z, 21.0):
 			continue
 		var site := StaticBody3D.new()
-		site.position = Vector3(x, height_at(x, z) + 0.12, z)
+		site.position = Vector3(x, height_at(x, z) + 0.04, z)
 		site.add_to_group("interactable")
 		site.add_to_group("fossil_site")
 		site.set_meta("kind", "fossil")
-		site.set_meta("fossil_key", ["ammonite", "fish", "leaf", "feather", "tooth", "claw"][rng.randi_range(0, 5)])
+		var fossil_key: String = ["ammonite", "fish", "leaf", "feather", "tooth", "claw"][rng.randi_range(0, 5)]
+		site.set_meta("fossil_key", fossil_key)
 		site.set_meta("site_index", index)
-		var marker := MeshInstance3D.new()
-		var marker_mesh := SphereMesh.new()
-		marker_mesh.radius = 0.75
-		marker_mesh.height = 0.15
-		marker.mesh = marker_mesh
-		marker.material_override = _material(Color(0.68, 0.54, 0.25))
-		site.add_child(marker)
+		var fossil_visual := MeshInstance3D.new()
+		fossil_visual.mesh = _create_fossil_mesh(fossil_key)
+		var fossil_material := StandardMaterial3D.new()
+		fossil_material.vertex_color_use_as_albedo = true
+		fossil_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+		fossil_material.roughness = 0.92
+		fossil_material.albedo_color = Color(0.78, 0.68, 0.48)
+		fossil_visual.material_override = fossil_material
+		site.add_child(fossil_visual)
 		var collision := CollisionShape3D.new()
 		var shape := SphereShape3D.new()
-		shape.radius = 0.9
+		shape.radius = 0.78
+		collision.position.y = 0.26
 		collision.shape = shape
 		site.add_child(collision)
 		add_child(site)
 		fossil_sites.append(site)
 
 
+func _create_fossil_mesh(kind: String) -> ArrayMesh:
+	var surface := SurfaceTool.new()
+	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var bone := Color(0.82, 0.73, 0.55)
+	var shadow := Color(0.59, 0.47, 0.32)
+	match kind:
+		"ammonite":
+			var previous := Vector3.ZERO
+			var has_previous := false
+			for index in range(90):
+				var angle := float(index) * TAU * 2.5 / 89.0
+				var radius := 0.035 + float(index) / 89.0 * 0.48
+				var point := Vector3(cos(angle) * radius, 0.045, sin(angle) * radius)
+				if has_previous:
+					_append_fossil_segment(surface, previous, point, 0.045, 0.045, bone, 6)
+					if index % 8 == 0:
+						_append_fossil_segment(surface, point, Vector3.ZERO, 0.012, 0.006, shadow, 5)
+				previous = point
+				has_previous = true
+		"fish":
+			var spine_start := Vector3(-0.48, 0.055, 0.0)
+			var spine_end := Vector3(0.43, 0.055, 0.0)
+			_append_fossil_segment(surface, spine_start, spine_end, 0.035, 0.022, bone, 7)
+			_append_fossil_segment(surface, Vector3(-0.48, 0.055, 0), Vector3(-0.65, 0.055, -0.22), 0.022, 0.008, bone, 6)
+			_append_fossil_segment(surface, Vector3(-0.48, 0.055, 0), Vector3(-0.65, 0.055, 0.22), 0.022, 0.008, bone, 6)
+			for rib_index in range(7):
+				var fraction := float(rib_index + 1) / 9.0
+				var x := lerpf(-0.4, 0.3, fraction)
+				var radius := 0.18 * sin(PI * fraction) + 0.04
+				var joint := Vector3(x, 0.052, 0)
+				for side: float in [-1.0, 1.0]:
+					_append_fossil_segment(surface, joint, Vector3(x - 0.1, 0.05, side * radius), 0.014, 0.008, bone, 5)
+			_append_fossil_segment(surface, Vector3(-0.05, 0.06, 0), Vector3(-0.19, 0.06, -0.29), 0.017, 0.008, shadow, 5)
+			_append_fossil_segment(surface, Vector3(-0.05, 0.06, 0), Vector3(-0.19, 0.06, 0.29), 0.017, 0.008, shadow, 5)
+		"leaf":
+			_append_fossil_segment(surface, Vector3(0, 0.045, -0.52), Vector3(0, 0.045, 0.48), 0.023, 0.008, shadow, 5)
+			var previous_left := Vector3(0, 0.045, -0.52)
+			var previous_right := previous_left
+			for outline_index in range(1, 13):
+				var outline_fraction := float(outline_index) / 12.0
+				var outline_z := lerpf(-0.52, 0.42, outline_fraction)
+				var outline_width := 0.34 * sin(PI * outline_fraction)
+				var next_left := Vector3(-outline_width, 0.045, outline_z)
+				var next_right := Vector3(outline_width, 0.045, outline_z)
+				_append_fossil_segment(surface, previous_left, next_left, 0.013, 0.013, bone, 5)
+				_append_fossil_segment(surface, previous_right, next_right, 0.013, 0.013, bone, 5)
+				previous_left = next_left
+				previous_right = next_right
+			for vein_index in range(6):
+				var fraction := (float(vein_index) + 0.6) / 7.0
+				var z := lerpf(-0.38, 0.32, fraction)
+				var width := 0.34 * sin(PI * fraction)
+				var start := Vector3(0, 0.05, z)
+				_append_fossil_segment(surface, start, Vector3(-width, 0.045, z - 0.13), 0.012, 0.004, bone, 5)
+				_append_fossil_segment(surface, start, Vector3(width, 0.045, z - 0.13), 0.012, 0.004, bone, 5)
+		"feather":
+			_append_fossil_segment(surface, Vector3(0, 0.05, 0.48), Vector3(0, 0.05, -0.48), 0.026, 0.009, shadow, 6)
+			for barb_index in range(9):
+				var fraction := (float(barb_index) + 0.5) / 10.0
+				var z := lerpf(0.39, -0.34, fraction)
+				var width := 0.25 * sin(PI * fraction)
+				var start := Vector3(0, 0.052, z)
+				var end_z := z - 0.105
+				_append_fossil_segment(surface, start, Vector3(-width, 0.045, end_z), 0.013, 0.004, bone, 5)
+				_append_fossil_segment(surface, start, Vector3(width, 0.045, end_z), 0.013, 0.004, bone, 5)
+		"tooth":
+			_append_fossil_segment(surface, Vector3(-0.06, 0.08, 0.0), Vector3(0.03, 0.39, 0.0), 0.13, 0.004, bone, 10)
+			_append_fossil_segment(surface, Vector3(-0.04, 0.09, 0.0), Vector3(0.10, 0.18, 0.0), 0.10, 0.018, shadow, 8)
+		"claw":
+			var previous := Vector3(-0.12, 0.065, 0.0)
+			for index in range(12):
+				var fraction := float(index + 1) / 12.0
+				var next := Vector3(-0.12 + 0.25 * fraction * fraction, 0.065 + 0.43 * fraction, 0.025 * sin(fraction * PI))
+				_append_fossil_segment(surface, previous, next, lerpf(0.09, 0.007, fraction - 1.0 / 12.0), maxf(0.004, 0.007 * (1.0 - fraction)), bone, 8)
+				previous = next
+	surface.generate_normals()
+	return surface.commit()
+
+
+func _append_fossil_segment(surface: SurfaceTool, start: Vector3, finish: Vector3, start_radius: float, end_radius: float, color_value: Color, sides: int) -> void:
+	var direction := (finish - start).normalized()
+	var axis_x := direction.cross(Vector3.FORWARD).normalized()
+	if axis_x.length_squared() < 0.01:
+		axis_x = direction.cross(Vector3.RIGHT).normalized()
+	var axis_z := direction.cross(axis_x).normalized()
+	for side in range(sides):
+		var angle_a := TAU * float(side) / float(sides)
+		var angle_b := TAU * float(side + 1) / float(sides)
+		var offset_a := axis_x * cos(angle_a) + axis_z * sin(angle_a)
+		var offset_b := axis_x * cos(angle_b) + axis_z * sin(angle_b)
+		var a := start + offset_a * start_radius
+		var b := start + offset_b * start_radius
+		var c := finish + offset_a * end_radius
+		var d := finish + offset_b * end_radius
+		_add_colored_triangle(surface, a, b, c, color_value.darkened(0.06))
+		_add_colored_triangle(surface, c, b, d, color_value)
+
+
 func _spawn_birds() -> void:
-	for index in range(22):
-		var x := rng.randf_range(-92, 92)
-		var z := rng.randf_range(-92, 92)
-		if _in_clearing(x, z, 18.0):
+	for index in range(32):
+		var point := _random_world_point(rng, 17.0)
+		var x := point.x
+		var z := point.y
+		if _in_clearing(x, z, 16.0):
 			continue
-		var bird := StaticBody3D.new()
-		bird.position = Vector3(x, height_at(x, z), z)
-		bird.add_to_group("interactable")
-		bird.add_to_group("wildlife")
-		bird.set_meta("kind", "bird")
-		bird.set_meta("bird_index", index)
-		var body := MeshInstance3D.new()
-		var body_mesh := SphereMesh.new()
-		body_mesh.radius = 0.38
-		body_mesh.height = 0.7
-		body.mesh = body_mesh
-		body.position.y = 0.72
-		body.material_override = _material(Color(0.82, 0.72, 0.4))
-		bird.add_child(body)
-		var collision_shape := CollisionShape3D.new()
-		var sphere := SphereShape3D.new()
-		sphere.radius = 1.0
-		collision_shape.shape = sphere
-		bird.add_child(collision_shape)
+		var bird := AnimalScript.new() as CharacterBody3D
+		bird.name = "Bird_%02d" % index
+		bird.configure(self, "bird", Vector3(x, height_at(x, z), z), 13.0, seed + index * 97 + 31, index)
 		add_child(bird)
 		wildlife.append(bird)
+
+
+func spawn_dinosaur(index: int) -> void:
+	var center := Vector3(34, height_at(34, -14), -14)
+	var dinosaur := AnimalScript.new() as CharacterBody3D
+	dinosaur.name = "Dinosaur_%02d" % index
+	dinosaur.configure(self, "dinosaur", center, 5.2, seed + 17003 + index * 131, index)
+	dinosaurs.append(dinosaur)
+	add_child(dinosaur)
 
 
 func _in_clearing(x: float, z: float, radius: float) -> bool:

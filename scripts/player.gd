@@ -2,13 +2,15 @@ extends CharacterBody3D
 
 const WALK_SPEED := 6.0
 const SPRINT_SPEED := 9.0
-const JUMP_VELOCITY := 5.2
+const JUMP_VELOCITY := 4.4
 const LOOK_SENSITIVITY := 0.0025
 const INTERACTION_DISTANCE := 4.5
 var controls_enabled := true
 var camera: Camera3D
 var held_physical_keys: Dictionary = {}
 var jump_requested := false
+var camera_bob_phase := 0.0
+var landing_bob := 0.0
 
 
 func _ready() -> void:
@@ -80,6 +82,7 @@ func _physics_process(delta: float) -> void:
 	if not controls_enabled:
 		jump_requested = false
 		return
+	var was_on_floor := is_on_floor()
 	if not is_on_floor():
 		velocity.y -= 9.8 * delta
 	elif jump_requested or Input.is_action_just_pressed("jump"):
@@ -100,6 +103,19 @@ func _physics_process(delta: float) -> void:
 		velocity.x = move_toward(velocity.x, 0.0, speed * 7.0 * delta)
 		velocity.z = move_toward(velocity.z, 0.0, speed * 7.0 * delta)
 	move_and_slide()
+	if not was_on_floor and is_on_floor():
+		landing_bob = -0.075
+	landing_bob = move_toward(landing_bob, 0.0, delta * 0.48)
+	var horizontal_speed := Vector2(velocity.x, velocity.z).length()
+	var bob_height := 0.0
+	var bob_sway := 0.0
+	if is_on_floor() and horizontal_speed > 0.25:
+		camera_bob_phase += delta * (10.5 if sprinting_forward else 8.0)
+		var amplitude := 0.055 if sprinting_forward else 0.034
+		bob_height = absf(sin(camera_bob_phase)) * amplitude
+		bob_sway = cos(camera_bob_phase * 0.5) * amplitude * 0.32
+	camera.position.y = lerpf(camera.position.y, 1.58 + bob_height + landing_bob, minf(delta * 12.0, 1.0))
+	camera.position.x = lerpf(camera.position.x, bob_sway, minf(delta * 10.0, 1.0))
 
 
 func set_controls_enabled(enabled: bool) -> void:

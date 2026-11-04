@@ -39,17 +39,20 @@ var dig_time := 0.0
 var income_timer := 0.0
 var menu_kind := ""
 var world_seed := 42042
+var lab_switch_on := false
 var goal := "Finde ein Fossil und grabe es mit der linken Maustaste aus."
 var graphics_settings: Dictionary = GraphicsSettings.defaults()
 
 
 func _ready() -> void:
+	var has_save_file := FileAccess.file_exists(SAVE_PATH)
 	_load_game()
 	world = WorldScript.new()
 	world.name = "World"
 	world.seed = world_seed
 	world.graphics_settings = graphics_settings.duplicate()
 	add_child(world)
+	world.set_lab_switch_state(lab_switch_on)
 	player = PlayerScript.new()
 	player.name = "Player"
 	player.position = Vector3(0, 3.0, 2.0)
@@ -65,6 +68,8 @@ func _ready() -> void:
 	world.apply_graphics_settings(graphics_settings, player.camera)
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	_update_hud()
+	if not has_save_file:
+		_save_game()
 
 
 func _process(delta: float) -> void:
@@ -97,6 +102,8 @@ func _process(delta: float) -> void:
 				hint = "F drücken: Marktplatz öffnen"
 			"lab":
 				hint = "F drücken: Forschungslabor öffnen"
+			"lab_switch":
+				hint = "F drücken: Wissenschaftlichen Schalter umlegen"
 			"zoo":
 				hint = "F drücken: Zoo verwalten"
 	else:
@@ -154,6 +161,11 @@ func _interact(target: Node3D) -> void:
 			_open_menu("market")
 		"lab":
 			_open_menu("lab")
+		"lab_switch":
+			lab_switch_on = not lab_switch_on
+			world.set_lab_switch_state(lab_switch_on)
+			hud.show_message("Laborschalter %s." % ("aktiviert" if lab_switch_on else "deaktiviert"))
+			_save_game()
 		"zoo":
 			_open_menu("zoo")
 
@@ -164,7 +176,7 @@ func _open_menu(kind: String) -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	var title := "Inventar"
 	var actions: Array[Dictionary] = []
-	var content := _status_text()
+	var content := "%s\nWelt-Seed: %d" % [_status_text(), world_seed]
 	match kind:
 		"market":
 			title = "Marktplatz"
@@ -177,6 +189,7 @@ func _open_menu(kind: String) -> void:
 		"lab":
 			title = "Forschungslabor"
 			actions = [
+				{"label": "Schalter: %s (im Labor bedienen)" % ("EIN" if lab_switch_on else "AUS"), "action": "lab_switch_status"},
 				{"label": "Fossil analysieren", "action": "analyze"},
 				{"label": "Dinosaurier-Ei erzeugen (25 DNA + 1 Vogel)", "action": "create_egg"},
 				{"label": "Spiel speichern", "action": "save"},
@@ -191,13 +204,16 @@ func _open_menu(kind: String) -> void:
 			title = "Pause"
 			actions = [
 				{"label": "Grafikeinstellungen", "action": "settings"},
+				{"label": "Seed kopieren", "action": "copy_seed"},
+				{"label": "Neue Welt generieren (Fortschritt zurücksetzen)", "action": "new_world"},
 				{"label": "Spiel speichern", "action": "save"},
 			]
 		"inventory":
 			title = "Inventar & Fortschritt"
+			actions = [{"label": "Seed kopieren", "action": "copy_seed"}]
 		"settings":
 			title = "Grafikeinstellungen"
-			content = "Grafikoptionen (Änderungen werden sofort angewendet):"
+			content = "Grafikoptionen (Änderungen werden sofort angewendet):\nWelt-Seed: %d" % world_seed
 			for setting: String in GraphicsSettings.OPTIONS:
 				actions.append({
 					"label": "%s: %s" % [
@@ -206,6 +222,8 @@ func _open_menu(kind: String) -> void:
 					],
 					"action": "graphics:%s" % setting,
 				})
+	if kind in ["market", "lab", "zoo"]:
+		actions.append({"label": "Seed kopieren", "action": "copy_seed"})
 	hud.open_menu(title, content, actions)
 
 
@@ -215,8 +233,8 @@ func _status_text() -> String:
 		fossil_lines = ""
 		for fossil_key: String in inventory:
 			fossil_lines += "• %s (%s)\n" % [str(FOSSILS[fossil_key]["name"]), str(FOSSILS[fossil_key]["rarity"])]
-	return "Münzen: %d\nFossilien:\n%s\nDNA-Fragmente: %d\nGefangene Vögel: %d\nEier: %d\nDinosaurier im Zoo: %d\nZoo-Einnahmen: %d" % [
-		money, fossil_lines, research_points, birds_caught, eggs, dinosaurs, zoo_income
+	return "Münzen: %d\nFossilien:\n%s\nDNA-Fragmente: %d\nGefangene Vögel: %d\nEier: %d\nDinosaurier im Zoo: %d\nZoo-Einnahmen: %d\nLaborschalter: %s" % [
+		money, fossil_lines, research_points, birds_caught, eggs, dinosaurs, zoo_income, "EIN" if lab_switch_on else "AUS"
 	]
 
 
@@ -249,6 +267,14 @@ func _on_menu_action(action: String) -> void:
 		"settings":
 			_open_menu("settings")
 			return
+		"copy_seed":
+			DisplayServer.clipboard_set(str(world_seed))
+			hud.show_message("Welt-Seed %d kopiert." % world_seed)
+		"new_world":
+			_start_new_world()
+			return
+		"lab_switch_status":
+			hud.show_message("Gehe zum Schalthebel im Labor und drücke F.")
 	_open_menu(menu_kind)
 
 
@@ -293,7 +319,9 @@ func _analyze_fossil() -> void:
 
 
 func _create_egg() -> void:
-	if birds_caught < 1:
+	if not lab_switch_on:
+		hud.show_message("Aktiviere zuerst den wissenschaftlichen Schalter im Labor.")
+	elif birds_caught < 1:
 		hud.show_message("Du brauchst einen gefangenen Vogel.")
 	elif research_points < 25:
 		hud.show_message("Es fehlen DNA-Fragmente (benötigt: 25).")
@@ -318,41 +346,7 @@ func _hatch_dinosaur() -> void:
 
 
 func _add_dinosaur() -> void:
-	var dino := Node3D.new()
-	dino.position = Vector3(18, world.height_at(18, -14), -14)
-	world.add_child(dino)
-	var body := MeshInstance3D.new()
-	var body_mesh := SphereMesh.new()
-	body_mesh.radius = 0.8
-	body_mesh.height = 1.0
-	body.mesh = body_mesh
-	body.position = Vector3(0, 1.0, 0)
-	body.scale = Vector3(1.3, 0.8, 1.7)
-	body.material_override = _simple_material(Color(0.32, 0.48, 0.24))
-	dino.add_child(body)
-	var head := MeshInstance3D.new()
-	var head_mesh := SphereMesh.new()
-	head_mesh.radius = 0.42
-	head.mesh = head_mesh
-	head.position = Vector3(0, 1.45, -1.05)
-	head.material_override = _simple_material(Color(0.38, 0.54, 0.28))
-	dino.add_child(head)
-	for side in [-1.0, 1.0]:
-		var leg := MeshInstance3D.new()
-		var leg_mesh := CapsuleMesh.new()
-		leg_mesh.radius = 0.14
-		leg_mesh.height = 0.7
-		leg.mesh = leg_mesh
-		leg.position = Vector3(side * 0.38, 0.38, 0)
-		leg.material_override = _simple_material(Color(0.28, 0.4, 0.21))
-		dino.add_child(leg)
-
-
-func _simple_material(color_value: Color) -> StandardMaterial3D:
-	var material := StandardMaterial3D.new()
-	material.albedo_color = color_value
-	material.roughness = 0.9
-	return material
+	world.spawn_dinosaur(world.dinosaurs.size())
 
 
 func _add_existing_dinosaurs() -> void:
@@ -412,6 +406,7 @@ func _save_game() -> void:
 		"eggs": eggs,
 		"dinosaurs": dinosaurs,
 		"zoo_income": zoo_income,
+		"lab_switch_on": lab_switch_on,
 		"mined_sites": mined_sites,
 		"caught_birds": caught_birds,
 		"world_seed": world_seed,
@@ -425,8 +420,54 @@ func _save_game() -> void:
 	file.store_string(JSON.stringify(data))
 
 
+func _start_new_world() -> void:
+	var next_seed := _random_world_seed()
+	while next_seed == world_seed:
+		next_seed = _random_world_seed()
+
+	money = 0
+	inventory.clear()
+	unlocked_tools = ["hands"]
+	active_tool = "hands"
+	research_points = 0
+	birds_caught = 0
+	eggs = 0
+	dinosaurs = 0
+	zoo_income = 0
+	mined_sites.clear()
+	caught_birds.clear()
+	lab_switch_on = false
+	dig_target = null
+	dig_time = 0.0
+	income_timer = 0.0
+	world_seed = next_seed
+	goal = "Finde ein Fossil und grabe es mit der linken Maustaste aus."
+	player.position = Vector3(0, 3.0, 2.0)
+	player.rotation = Vector3.ZERO
+	player.camera.rotation = Vector3.ZERO
+	world.free()
+	world = WorldScript.new()
+	world.name = "World"
+	world.seed = world_seed
+	world.graphics_settings = graphics_settings.duplicate()
+	add_child(world)
+	world.set_lab_switch_state(false)
+	world.apply_graphics_settings(graphics_settings, player.camera)
+	_save_game()
+	_close_menu()
+	hud.show_message("Neue Welt erstellt. Seed: %d" % world_seed)
+	_update_hud()
+
+
+func _random_world_seed() -> int:
+	var seed_generator := RandomNumberGenerator.new()
+	seed_generator.randomize()
+	return seed_generator.randi_range(1, 2147483646)
+
+
 func _load_game() -> void:
 	if not FileAccess.file_exists(SAVE_PATH):
+		world_seed = _random_world_seed()
 		return
 	var file := FileAccess.open(SAVE_PATH, FileAccess.READ)
 	if file == null:
@@ -453,6 +494,7 @@ func _load_game() -> void:
 	birds_caught = maxi(0, int(data.get("birds_caught", 0)))
 	eggs = maxi(0, int(data.get("eggs", 0)))
 	dinosaurs = maxi(0, int(data.get("dinosaurs", 0)))
+	lab_switch_on = bool(data.get("lab_switch_on", false))
 	zoo_income = maxi(0, int(data.get("zoo_income", 0)))
 	mined_sites.clear()
 	for site: Variant in data.get("mined_sites", []):
@@ -460,6 +502,8 @@ func _load_game() -> void:
 	caught_birds.clear()
 	for bird: Variant in data.get("caught_birds", []):
 		caught_birds.append(str(bird))
-	world_seed = int(data.get("world_seed", world_seed))
+	world_seed = maxi(1, int(data.get("world_seed", world_seed)))
 	goal = str(data.get("goal", goal))
 	graphics_settings = GraphicsSettings.sanitize(data.get("graphics_settings", {}))
+	if is_instance_valid(world):
+		world.set_lab_switch_state(lab_switch_on)

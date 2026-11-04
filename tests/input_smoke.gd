@@ -24,6 +24,19 @@ func _run_test() -> void:
 			return
 		await create_timer(0.2).timeout
 
+	var camera: Camera3D = player.get("camera")
+	var camera_base_height := camera.position.y
+	var camera_bob := 0.0
+	_send_key(KEY_W, true)
+	for frame in range(24):
+		await process_frame
+		camera_bob = maxf(camera_bob, absf(camera.position.y - camera_base_height))
+	_send_key(KEY_W, false)
+	if camera_bob < 0.01:
+		push_error("The camera did not respond to walking movement")
+		quit(1)
+		return
+
 	var walk_start := player.position
 	_send_key(KEY_W, true)
 	await create_timer(0.3).timeout
@@ -47,8 +60,16 @@ func _run_test() -> void:
 	_send_key(KEY_SPACE, true)
 	await create_timer(0.1).timeout
 	_send_key(KEY_SPACE, false)
-	if player.position.y <= jump_start + 0.1:
+	var jump_peak := player.position.y
+	for frame in range(30):
+		await process_frame
+		jump_peak = maxf(jump_peak, player.position.y)
+	if jump_peak <= jump_start + 0.3:
 		push_error("Space did not make the player jump")
+		quit(1)
+		return
+	if jump_peak > jump_start + 1.5:
+		push_error("The jump is still higher than the intended earth-like jump")
 		quit(1)
 		return
 

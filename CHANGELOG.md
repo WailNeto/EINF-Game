@@ -13,3 +13,8 @@
 - Ergänzt prozedurales PBR-Terrain, atmosphärischen Nebel, Qualitätsoptionen für Renderweite, Texturdetails, Schatten, Vegetation, MSAA und Gebäudesichtweite; Optionen werden gespeichert.
 - Behebt durchsichtig gerendertes Terrain durch opakes zweiseitiges Rendering und eindeutige Terrain-LOD-Sichtweiten.
 - Ersetzt Baum- und Fels-Platzhalter durch variierte MultiMesh-Modelle mit prozeduralen PBR-Oberflächendetails und gruppiert Markt, Labor und Zoo als unterschiedliche, betretbare Gebäude mit freiem Eingang und eingerichtetem Innenraum.
+- Vergrößert die Welt auf 280 × 280 Meter, glättet das Gelände und gruppiert Terrain in 49 LOD-Chunks.
+- Ergänzt im Pausemenü einen kopierbaren Welt-Seed sowie eine Aktion zum Erzeugen einer neuen Welt mit zurückgesetztem Fortschritt.
+- Ergänzt animierte, wandernde Vögel und Dinosaurier sowie eigene Ammoniten-, Fisch-, Blatt-, Feder-, Zahn- und Krallenmodelle.
+- Ergänzt einen bedienbaren wissenschaftlichen Laborschalter als Voraussetzung zur Erzeugung von Dino-Eiern.
+- Verkürzt den Sprung und ergänzt dezentes Kamerawippen beim Laufen sowie eine Landebewegung.
