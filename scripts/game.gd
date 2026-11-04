@@ -3,6 +3,7 @@ extends Node3D
 const PlayerScript := preload("res://scripts/player.gd")
 const WorldScript := preload("res://scripts/world.gd")
 const HudScript := preload("res://scripts/hud.gd")
+const GraphicsSettings := preload("res://scripts/graphics_settings.gd")
 const SAVE_PATH := "user://dino_genesis_save.json"
 
 const FOSSILS := {
@@ -39,6 +40,7 @@ var income_timer := 0.0
 var menu_kind := ""
 var world_seed := 42042
 var goal := "Finde ein Fossil und grabe es mit der linken Maustaste aus."
+var graphics_settings: Dictionary = GraphicsSettings.defaults()
 
 
 func _ready() -> void:
@@ -46,18 +48,21 @@ func _ready() -> void:
 	world = WorldScript.new()
 	world.name = "World"
 	world.seed = world_seed
+	world.graphics_settings = graphics_settings.duplicate()
 	add_child(world)
 	player = PlayerScript.new()
 	player.name = "Player"
 	player.position = Vector3(0, 3.0, 2.0)
 	add_child(player)
 	hud = HudScript.new()
+	hud.name = "HUD"
 	add_child(hud)
 	hud.action_requested.connect(_on_menu_action)
 	hud.menu_closed.connect(_close_menu)
 	_apply_mined_sites()
 	_apply_caught_birds()
 	_add_existing_dinosaurs()
+	world.apply_graphics_settings(graphics_settings, player.camera)
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	_update_hud()
 
@@ -80,20 +85,22 @@ func _process(delta: float) -> void:
 		return
 
 	var aimed: Node3D = player.get_aimed_interactable()
-	var hint := "Kein Ziel im Blick"
+	var hint := "WASD bewegen · Shift+W sprinten · Leertaste springen · E Inventar"
 	if is_instance_valid(aimed):
 		var kind := str(aimed.get_meta("kind", ""))
 		match kind:
 			"fossil":
 				hint = "Linke Maustaste halten: %s ausgraben" % str(FOSSILS[aimed.get_meta("fossil_key")]["name"])
 			"bird":
-				hint = "E drücken: Vogel einfangen"
+				hint = "F drücken: Vogel einfangen"
 			"market":
-				hint = "E drücken: Marktplatz öffnen"
+				hint = "F drücken: Marktplatz öffnen"
 			"lab":
-				hint = "E drücken: Forschungslabor öffnen"
+				hint = "F drücken: Forschungslabor öffnen"
 			"zoo":
-				hint = "E drücken: Zoo verwalten"
+				hint = "F drücken: Zoo verwalten"
+	else:
+		hint = "WASD bewegen · Shift+W sprinten · Leertaste springen · E Inventar"
 	if is_instance_valid(aimed) and Input.is_action_just_pressed("interact"):
 		_interact(aimed)
 	if is_instance_valid(aimed) and str(aimed.get_meta("kind", "")) == "fossil" and Input.is_action_pressed("dig"):
@@ -182,9 +189,23 @@ func _open_menu(kind: String) -> void:
 			]
 		"pause":
 			title = "Pause"
-			actions = [{"label": "Spiel speichern", "action": "save"}]
+			actions = [
+				{"label": "Grafikeinstellungen", "action": "settings"},
+				{"label": "Spiel speichern", "action": "save"},
+			]
 		"inventory":
 			title = "Inventar & Fortschritt"
+		"settings":
+			title = "Grafikeinstellungen"
+			content = "Grafikoptionen (Änderungen werden sofort angewendet):"
+			for setting: String in GraphicsSettings.OPTIONS:
+				actions.append({
+					"label": "%s: %s" % [
+						GraphicsSettings.LABELS[setting],
+						GraphicsSettings.display_value(setting, graphics_settings),
+					],
+					"action": "graphics:%s" % setting,
+				})
 	hud.open_menu(title, content, actions)
 
 
@@ -200,6 +221,15 @@ func _status_text() -> String:
 
 
 func _on_menu_action(action: String) -> void:
+	if action.begins_with("graphics:"):
+		var setting := action.trim_prefix("graphics:")
+		if GraphicsSettings.OPTIONS.has(setting):
+			var values: Array = GraphicsSettings.OPTIONS[setting]
+			graphics_settings[setting] = (int(graphics_settings[setting]) + 1) % values.size()
+			world.apply_graphics_settings(graphics_settings, player.camera)
+			_save_game()
+		_open_menu("settings")
+		return
 	match action:
 		"sell_one":
 			_sell_fossil()
@@ -216,6 +246,9 @@ func _on_menu_action(action: String) -> void:
 		"save":
 			_save_game()
 			hud.show_message("Spiel gespeichert.")
+		"settings":
+			_open_menu("settings")
+			return
 	_open_menu(menu_kind)
 
 
@@ -286,7 +319,7 @@ func _hatch_dinosaur() -> void:
 
 func _add_dinosaur() -> void:
 	var dino := Node3D.new()
-	dino.position = Vector3(0, world.height_at(0, 22), 22)
+	dino.position = Vector3(18, world.height_at(18, -14), -14)
 	world.add_child(dino)
 	var body := MeshInstance3D.new()
 	var body_mesh := SphereMesh.new()
@@ -342,7 +375,7 @@ func _update_zoo_income(delta: float) -> void:
 func _update_hud(hint: String = "") -> void:
 	var hint_text := hint
 	if hint_text == "":
-		hint_text = "WASD bewegen · E interagieren · Linksklick graben · I Inventar · ESC Pause"
+		hint_text = "WASD bewegen · Shift+W sprinten · Leertaste springen · E Inventar · F Benutzen"
 	hud.set_hud(money, str(TOOLS[active_tool]["name"]), goal, hint_text)
 
 
@@ -383,6 +416,7 @@ func _save_game() -> void:
 		"caught_birds": caught_birds,
 		"world_seed": world_seed,
 		"goal": goal,
+		"graphics_settings": graphics_settings,
 	}
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file == null:
@@ -428,3 +462,4 @@ func _load_game() -> void:
 		caught_birds.append(str(bird))
 	world_seed = int(data.get("world_seed", world_seed))
 	goal = str(data.get("goal", goal))
+	graphics_settings = GraphicsSettings.sanitize(data.get("graphics_settings", {}))

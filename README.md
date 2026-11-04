@@ -1,6 +1,6 @@
 # Dino Genesis
 
-Dino Genesis ist jetzt ein **Godot-4-Projekt** und verwendet GDScript. Die 3D-Welt wird direkt im Spiel aufgebaut: mit geglätteten Hügeln, Wald, Büschen, Felsen, Wegen und markierten Orten. Es werden keine externen 3D-Assets benötigt.
+Dino Genesis ist ein **Godot-4-Projekt** und verwendet GDScript. Die prozedurale, begehbare Welt ist 200 × 200 Meter groß (6,25-mal die ursprüngliche Fläche) und verbindet Ebenen, Hügel und Bergrücken mit Wegen, Wäldern und variierenden Felsformationen. Markt, Labor und Zoo liegen als Gruppe beieinander. Die Gebäude haben unterschiedliche Formen, offene Eingänge und begehbare Innenräume. Geländeoberflächen werden mit einem opaken, zweiseitigen PBR-Shader schattiert. Vegetation wird in räumlichen Chunks mit GPU-Multimeshes gezeichnet; Bäume besitzen verästelte Stämme, mehrere Blätterkronen und eine vereinfachte Baum-LOD. Für Bäume und Felsen erzeugen PBR-Shader zusätzliche prozedurale Farb- und Oberflächendetails; dafür sind keine externen Assets erforderlich.
 
 ## Starten
 
@@ -11,16 +11,24 @@ Dino Genesis ist jetzt ein **Godot-4-Projekt** und verwendet GDScript. Die 3D-We
 
 Auch in VS Code kann das Projekt bearbeitet werden; zum Ausführen muss Godot installiert sein. Python, Ursina und pip sind für die Godot-Version nicht erforderlich. Für ältere Startanleitungen ist `main.py` als Kompatibilitäts-Launcher vorhanden: `python3 main.py` sucht Godot und öffnet dieses Projekt. Falls Godot nicht automatisch gefunden wird, Godot direkt starten oder `GODOT_EXECUTABLE` auf die ausführbare Datei setzen.
 
+Die Steuerung lässt sich mit `godot --path . --script res://tests/input_smoke.gd` automatisiert prüfen.
+
 ## Steuerung
 
 - **WASD**: bewegen (physische Tasten, unabhängig vom Tastaturlayout)
 - **Maus**: Kamera bewegen (im Spiel gefangen, in Menüs sichtbar)
-- **Shift**: sprinten
+- **Shift + W**: vorwärts sprinten
 - **Leertaste**: springen
-- **E**: anvisiertes Objekt oder Gebäude benutzen
+- **E**: Inventar öffnen
+- **F**: anvisiertes Objekt oder Gebäude benutzen
 - **Linke Maustaste halten**: Fossil ausgraben
-- **I**: Inventar öffnen
+- **I**: Inventar jederzeit öffnen
 - **Esc**: Menü / Pause schließen oder öffnen
+- **Pausemenü → Grafikeinstellungen**: Renderweite, Texturdetails, Schatten, Vegetation, Anti-Aliasing, Vegetations- und Gebäudesichtweite sowie Nebel einstellen
+
+## Grafik und Leistung
+
+Die Grafikoptionen werden sofort angewendet und im Spielstand gespeichert. Renderweite, Sichtweiten, Vegetationsdichte, Schatten, MSAA und Nebel bieten jeweils vier Stufen. Die Welt nutzt Godots Frustum Culling sowie distanzbegrenzte, nach Bereichen gruppierte MultiMesh-Instanzen. Baked Occlusion Culling ist nicht aktiviert: Die Welt wird zur Laufzeit prozedural erzeugt und enthält keine gebackenen Occluder. Desktop nutzt Forward+ für SSAO, SSIL, SSR und volumetrischen Nebel; mobile Geräte verwenden weiterhin GL Compatibility.
 
 ## Spielablauf
 

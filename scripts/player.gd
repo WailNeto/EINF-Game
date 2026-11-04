@@ -5,9 +5,10 @@ const SPRINT_SPEED := 9.0
 const JUMP_VELOCITY := 5.2
 const LOOK_SENSITIVITY := 0.0025
 const INTERACTION_DISTANCE := 4.5
-
 var controls_enabled := true
 var camera: Camera3D
+var held_physical_keys: Dictionary = {}
+var jump_requested := false
 
 
 func _ready() -> void:
@@ -17,7 +18,8 @@ func _ready() -> void:
 	_add_input_action("move_right", KEY_D)
 	_add_input_action("jump", KEY_SPACE)
 	_add_input_action("sprint", KEY_SHIFT)
-	_add_input_action("interact", KEY_E)
+	_add_input_action("interact", KEY_F)
+	_add_input_action("inventory", KEY_E)
 	_add_input_action("inventory", KEY_I)
 	_add_input_action("pause", KEY_ESCAPE)
 	if not InputMap.has_action("dig"):
@@ -45,6 +47,7 @@ func _add_input_action(action_name: String, key: int) -> void:
 		InputMap.add_action(action_name)
 	var event := InputEventKey.new()
 	event.physical_keycode = key
+	event.keycode = key
 	InputMap.action_add_event(action_name, event)
 
 
@@ -57,26 +60,39 @@ func _unhandled_input(event: InputEvent) -> void:
 		camera.rotation.x = clampf(camera.rotation.x, deg_to_rad(-85), deg_to_rad(85))
 
 
+func _input(event: InputEvent) -> void:
+	if event is InputEventKey:
+		var key_event := event as InputEventKey
+		var key := key_event.physical_keycode if key_event.physical_keycode != KEY_NONE else key_event.keycode
+		if key in [KEY_W, KEY_A, KEY_S, KEY_D, KEY_SHIFT, KEY_SPACE]:
+			held_physical_keys[key] = key_event.pressed
+		if key == KEY_SPACE and key_event.pressed and not key_event.echo:
+			jump_requested = true
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_WINDOW_FOCUS_OUT:
+		held_physical_keys.clear()
+		jump_requested = false
+
+
 func _physics_process(delta: float) -> void:
 	if not controls_enabled:
+		jump_requested = false
 		return
 	if not is_on_floor():
 		velocity.y -= 9.8 * delta
-	elif Input.is_action_just_pressed("jump"):
+	elif jump_requested or Input.is_action_just_pressed("jump"):
 		velocity.y = JUMP_VELOCITY
+	jump_requested = false
 
-	var input_vector := Vector2.ZERO
-	if Input.is_physical_key_pressed(KEY_A):
-		input_vector.x -= 1.0
-	if Input.is_physical_key_pressed(KEY_D):
-		input_vector.x += 1.0
-	if Input.is_physical_key_pressed(KEY_W):
-		input_vector.y -= 1.0
-	if Input.is_physical_key_pressed(KEY_S):
-		input_vector.y += 1.0
-	input_vector = input_vector.normalized()
+	var input_vector := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	input_vector.x += (1.0 if held_physical_keys.get(KEY_D, false) else 0.0) - (1.0 if held_physical_keys.get(KEY_A, false) else 0.0)
+	input_vector.y += (1.0 if held_physical_keys.get(KEY_S, false) else 0.0) - (1.0 if held_physical_keys.get(KEY_W, false) else 0.0)
+	input_vector = input_vector.limit_length(1.0)
 	var direction := (transform.basis * Vector3(input_vector.x, 0.0, input_vector.y)).normalized()
-	var speed := SPRINT_SPEED if Input.is_action_pressed("sprint") else WALK_SPEED
+	var sprinting_forward: bool = (Input.is_action_pressed("sprint") or bool(held_physical_keys.get(KEY_SHIFT, false))) and input_vector.y < -0.5
+	var speed := SPRINT_SPEED if sprinting_forward else WALK_SPEED
 	if direction:
 		velocity.x = direction.x * speed
 		velocity.z = direction.z * speed

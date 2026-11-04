@@ -50,7 +50,7 @@ func _build_hud() -> void:
 	progress.visible = false
 	add_child(progress)
 
-	hint_label = _label("WASD bewegen · Maus schauen · E interagieren · I Inventar", 17)
+	hint_label = _label("WASD bewegen · Shift+W sprinten · Leertaste springen · E Inventar · F Benutzen", 17)
 	hint_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
 	hint_label.position = Vector2(-340, -54)
 	hint_label.size = Vector2(680, 28)
@@ -68,8 +68,8 @@ func _build_hud() -> void:
 func _build_menu() -> void:
 	menu_panel = PanelContainer.new()
 	menu_panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	menu_panel.position = Vector2(-260, -250)
-	menu_panel.size = Vector2(520, 500)
+	menu_panel.position = Vector2(-320, -330)
+	menu_panel.size = Vector2(640, 660)
 	menu_panel.visible = false
 	add_child(menu_panel)
 
@@ -133,7 +133,7 @@ func open_menu(title: String, content: String, actions: Array[Dictionary]) -> vo
 	menu_title.text = title
 	menu_content.text = content
 	for child in menu_buttons.get_children():
-		child.queue_free()
+		child.free()
 	for action: Dictionary in actions:
 		_add_button(str(action["label"]), str(action["action"]))
 	_add_button("Schließen (ESC)", "close")
