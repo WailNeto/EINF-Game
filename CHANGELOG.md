@@ -18,3 +18,5 @@
 - Ergänzt animierte, wandernde Vögel und Dinosaurier sowie eigene Ammoniten-, Fisch-, Blatt-, Feder-, Zahn- und Krallenmodelle.
 - Ergänzt einen bedienbaren wissenschaftlichen Laborschalter als Voraussetzung zur Erzeugung von Dino-Eiern.
 - Verkürzt den Sprung und ergänzt dezentes Kamerawippen beim Laufen sowie eine Landebewegung.
+- Setzt das Grafikprofil auf Ultra: 8× MSAA, FXAA, 1,35× 3D-Supersampling, SDFGI, SSAO, SSIL, SSR, volumetrischer Nebel, 8K-Schattenatlas sowie erhöhte Sichtweiten und Vegetationsdichte.
+- Migriert vorhandene Spielstände einmalig zum Ultra-Profil, ohne spätere manuelle Grafikeinstellungen zu überschreiben.

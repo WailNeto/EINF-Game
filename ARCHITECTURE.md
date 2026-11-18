@@ -12,7 +12,7 @@ Das Spiel läuft vollständig in Godot 4. Die Module sind in GDScript getrennt:
 
 ## Grafikoptionen und Culling
 
-Renderweite, Bodendetail, Schattenqualität, Vegetationsdichte, MSAA, Vegetationssichtweite, Gebäudesichtweite und Nebelqualität werden über das Pausenmenü eingestellt und im JSON-Spielstand gespeichert. Frustum Culling und distanzbasierte MultiMesh-Sichtweiten sind aktiv. Occlusion Culling ist nicht gebacken, da die Geometrie prozedural zur Laufzeit entsteht. Desktop nutzt Forward+ mit SSAO, SSIL, SSR und volumetrischem Nebel; mobile Geräte verwenden GL Compatibility.
+Das initiale Ultra-Profil aktiviert 8× MSAA, FXAA, 1,35× 3D-Supersampling, SDFGI, SSAO, SSIL, SSR, volumetrischen Nebel und hochauflösende Schatten. Renderweite, Bodendetail, Vegetationsdichte und Objekt-Sichtweiten lassen sich über das Pausenmenü einstellen und speichern. Ältere Spielstände werden einmalig auf Ultra migriert; danach bleiben manuelle Einstellungen gespeichert. Frustum Culling und distanzbasierte MultiMesh-Sichtweiten sind aktiv. Occlusion Culling ist nicht gebacken, da die Geometrie prozedural zur Laufzeit entsteht. Mobile Geräte verwenden GL Compatibility und haben weniger Effekte.
 
 ## Speichern
 

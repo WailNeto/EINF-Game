@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9ca9cb791bb514630b191f2e14006f07, type: 3}
+  m_Name: DefaultDinosaurCatalog
+  m_EditorClassIdentifier: 
+  species:
+  - id: velociraptor
+    displayName: Small Velociraptor
+    researchSpeciesId: velociraptor
+    birdSamplesRequired: 1
+    incubationSeconds: 30
+    growthSeconds: 60
+    bodyColor: {r: 0.43, g: 0.57, b: 0.31, a: 1}

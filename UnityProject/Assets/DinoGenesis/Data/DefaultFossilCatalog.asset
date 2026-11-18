@@ -1,0 +1,39 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c9ac63c56085445bb0d5f6559bacfe70, type: 3}
+  m_Name: DefaultFossilCatalog
+  m_EditorClassIdentifier: 
+  fossils:
+  - id: small-theropod-tooth
+    displayName: Small theropod tooth
+    rarity: 0
+    discoveryWeight: 60
+    saleValue: 20
+    researchValue: 2
+  - id: hadrosaur-vertebra
+    displayName: Hadrosaur vertebra
+    rarity: 1
+    discoveryWeight: 28
+    saleValue: 55
+    researchValue: 7
+  - id: triceratops-horn
+    displayName: Triceratops horn fragment
+    rarity: 2
+    discoveryWeight: 10
+    saleValue: 130
+    researchValue: 18
+  - id: tyrannosaur-jaw
+    displayName: Tyrannosaur jaw fragment
+    rarity: 3
+    discoveryWeight: 2
+    saleValue: 300
+    researchValue: 45

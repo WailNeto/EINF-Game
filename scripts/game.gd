@@ -5,6 +5,7 @@ const WorldScript := preload("res://scripts/world.gd")
 const HudScript := preload("res://scripts/hud.gd")
 const GraphicsSettings := preload("res://scripts/graphics_settings.gd")
 const SAVE_PATH := "user://dino_genesis_save.json"
+const GRAPHICS_PROFILE_VERSION := 1
 
 const FOSSILS := {
 	"ammonite": {"name": "Ammonit", "rarity": "Gewöhnlich", "price": 16, "research": 8},
@@ -42,6 +43,7 @@ var world_seed := 42042
 var lab_switch_on := false
 var goal := "Finde ein Fossil und grabe es mit der linken Maustaste aus."
 var graphics_settings: Dictionary = GraphicsSettings.defaults()
+var graphics_profile_migrated := false
 
 
 func _ready() -> void:
@@ -68,7 +70,7 @@ func _ready() -> void:
 	world.apply_graphics_settings(graphics_settings, player.camera)
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	_update_hud()
-	if not has_save_file:
+	if not has_save_file or graphics_profile_migrated:
 		_save_game()
 
 
@@ -412,6 +414,7 @@ func _save_game() -> void:
 		"world_seed": world_seed,
 		"goal": goal,
 		"graphics_settings": graphics_settings,
+		"graphics_profile_version": GRAPHICS_PROFILE_VERSION,
 	}
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file == null:
@@ -505,5 +508,9 @@ func _load_game() -> void:
 	world_seed = maxi(1, int(data.get("world_seed", world_seed)))
 	goal = str(data.get("goal", goal))
 	graphics_settings = GraphicsSettings.sanitize(data.get("graphics_settings", {}))
+	var saved_graphics_profile := int(data.get("graphics_profile_version", 0))
+	if saved_graphics_profile < GRAPHICS_PROFILE_VERSION:
+		graphics_settings = GraphicsSettings.defaults()
+		graphics_profile_migrated = true
 	if is_instance_valid(world):
 		world.set_lab_switch_state(lab_switch_on)

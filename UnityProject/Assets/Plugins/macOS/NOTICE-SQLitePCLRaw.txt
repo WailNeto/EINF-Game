@@ -1,0 +1,5 @@
+The bundled libe_sqlite3.dylib is from SQLitePCLRaw.lib.e_sqlite3 2.1.11.
+Package copyright: Copyright 2014-2024 SourceGear, LLC.
+The package is licensed under Apache License 2.0; see LICENSE-SQLitePCLRaw-Apache-2.0.txt.
+The SQLite engine itself is in the public domain.
+Source: https://www.nuget.org/packages/SQLitePCLRaw.lib.e_sqlite3/2.1.11

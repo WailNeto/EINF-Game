@@ -71,17 +71,25 @@ func _build_environment() -> void:
 	var sky_material := ProceduralSkyMaterial.new()
 	sky_material.sky_top_color = Color(0.16, 0.38, 0.7)
 	sky_material.sky_horizon_color = Color(0.72, 0.84, 0.91)
+	sky_material.sun_angle_max = 18.0
+	sky_material.ground_curve = 0.08
 	sky_material.ground_bottom_color = Color(0.19, 0.25, 0.16)
 	sky_material.ground_horizon_color = Color(0.58, 0.65, 0.47)
 	sky.sky_material = sky_material
 	environment.sky = sky
-	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	environment.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
 	environment.ambient_light_color = Color(0.68, 0.73, 0.8)
-	environment.ambient_light_energy = 0.85
+	environment.ambient_light_energy = 0.8
+	environment.reflected_light_source = Environment.REFLECTION_SOURCE_BG
 	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	environment.tonemap_exposure = 1.0
+	environment.tonemap_white = 1.1
+	environment.adjustment_enabled = true
+	environment.adjustment_contrast = 1.06
+	environment.adjustment_saturation = 1.08
 	environment.glow_enabled = true
-	environment.glow_intensity = 0.3
-	environment.glow_bloom = 0.12
+	environment.glow_intensity = 0.38
+	environment.glow_bloom = 0.08
 	world_environment.environment = environment
 	add_child(world_environment)
 
@@ -590,10 +598,10 @@ func _scatter_vegetation() -> void:
 	vegetation_quality = quality
 	var scatter := RandomNumberGenerator.new()
 	scatter.seed = seed + 8241
-	var tree_counts := [260, 440, 680, 920]
-	var shrub_counts := [220, 380, 600, 800]
-	var rock_counts := [180, 300, 480, 640]
-	var grass_counts := [800, 1700, 3300, 5600]
+	var tree_counts := [260, 500, 900, 1400]
+	var shrub_counts := [220, 450, 820, 1250]
+	var rock_counts := [180, 360, 680, 1050]
+	var grass_counts := [800, 1800, 3800, 7600]
 	for index in range(tree_counts[quality]):
 		var point := _random_world_point(scatter, 17.0)
 		if _in_clearing(point.x, point.y, 22.0):
@@ -684,7 +692,7 @@ func _build_instance_chunks() -> void:
 	var material_by_kind := {}
 	for kind: String in mesh_by_kind:
 		material_by_kind[kind] = grass_material if kind == "grass" else shrub_material if kind == "shrub" else rock_material if kind.begins_with("rock_") else leaf_material
-	var vegetation_distance := float([100.0, 165.0, 250.0, 370.0][int(graphics_settings.get("vegetation_distance", 2))])
+	var vegetation_distance := float([110.0, 190.0, 300.0, 440.0][int(graphics_settings.get("vegetation_distance", 3))])
 	for chunk_value: Vector2i in instance_chunks:
 		var chunk: Dictionary = instance_chunks[chunk_value]
 		var center := Vector3(
@@ -721,8 +729,8 @@ func _clear_instance_chunks() -> void:
 
 
 func _update_vegetation_ranges() -> void:
-	var distance_levels := [100.0, 165.0, 250.0, 370.0]
-	var vegetation_distance := float(distance_levels[int(graphics_settings.get("vegetation_distance", 2))])
+	var distance_levels := [110.0, 190.0, 300.0, 440.0]
+	var vegetation_distance := float(distance_levels[int(graphics_settings.get("vegetation_distance", 3))])
 	for instance: MultiMeshInstance3D in vegetation_instances:
 		var kind := str(instance.get_meta("vegetation_kind", ""))
 		if kind == "tree_lod":
@@ -740,45 +748,53 @@ func _update_vegetation_ranges() -> void:
 func apply_graphics_settings(settings: Dictionary, camera: Camera3D = null) -> void:
 	graphics_settings = settings.duplicate()
 	var old_quality := vegetation_quality
-	var render_levels := [160.0, 260.0, 410.0, 620.0]
-	render_distance = render_levels[int(graphics_settings.get("render_distance", 2))]
+	var render_levels := [180.0, 320.0, 500.0, 760.0]
+	render_distance = render_levels[int(graphics_settings.get("render_distance", 3))]
 	_update_terrain_ranges()
 	if is_instance_valid(camera):
 		camera.far = render_distance
-	var detail_levels := [0.0, 0.6, 1.0, 1.5]
+	var detail_levels := [0.0, 0.7, 1.25, 2.0]
 	if is_instance_valid(ground_material):
 		ground_material.set_shader_parameter("detail_scale", detail_levels[int(graphics_settings.get("texture_quality", 2))])
-	var shadow_quality := int(graphics_settings.get("shadow_quality", 2))
+	var shadow_quality := int(graphics_settings.get("shadow_quality", 3))
+	var viewport := get_viewport()
+	viewport.scaling_3d_scale = [0.85, 1.0, 1.15, 1.35][int(graphics_settings.get("anti_aliasing", 3))]
+	viewport.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
 	if is_instance_valid(sun):
 		sun.shadow_enabled = shadow_quality > 0
-		sun.directional_shadow_max_distance = [45.0, 85.0, 145.0, 220.0][shadow_quality]
+		sun.directional_shadow_max_distance = [50.0, 100.0, 200.0, 340.0][shadow_quality]
 		sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS if shadow_quality >= 2 else DirectionalLight3D.SHADOW_ORTHOGONAL
-	var antialiasing := int(graphics_settings.get("anti_aliasing", 1))
-	get_viewport().msaa_3d = [
+	var antialiasing := int(graphics_settings.get("anti_aliasing", 3))
+	viewport.msaa_3d = [
 		Viewport.MSAA_DISABLED,
 		Viewport.MSAA_2X,
 		Viewport.MSAA_4X,
 		Viewport.MSAA_8X,
 	][antialiasing]
-	var fog_quality := int(graphics_settings.get("fog_quality", 2))
+	var fog_quality := int(graphics_settings.get("fog_quality", 3))
 	if is_instance_valid(environment):
 		environment.fog_enabled = fog_quality > 0
 		environment.fog_light_color = Color(0.66, 0.77, 0.82)
-		environment.fog_density = [0.0, 0.0016, 0.0011, 0.00072][fog_quality]
+		environment.fog_density = [0.0, 0.0016, 0.0009, 0.00048][fog_quality]
 		environment.fog_sky_affect = 0.22
 		if str(ProjectSettings.get_setting("rendering/renderer/rendering_method", "forward_plus")) == "forward_plus":
 			environment.volumetric_fog_enabled = fog_quality >= 3
 			environment.ssao_enabled = shadow_quality >= 2
 			environment.ssil_enabled = shadow_quality >= 3
 			environment.ssr_enabled = shadow_quality >= 3
-	var building_levels := [120.0, 240.0, 390.0, 540.0]
+			environment.sdfgi_enabled = shadow_quality >= 3
+			environment.sdfgi_use_occlusion = shadow_quality >= 3
+			environment.sdfgi_read_sky_light = true
+			environment.sdfgi_energy = 1.1
+			environment.volumetric_fog_length = 220.0
+	var building_levels := [120.0, 240.0, 420.0, 620.0]
 	for building: Node3D in cullable_buildings:
 		for visual: Node in building.find_children("*", "GeometryInstance3D", true, false):
 			var geometry := visual as GeometryInstance3D
 			geometry.visibility_range_end = building_levels[int(graphics_settings.get("building_distance", 3))]
 			geometry.visibility_range_end_margin = 30.0
 			geometry.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
-	if old_quality != int(graphics_settings.get("vegetation_quality", 2)):
+	if old_quality != int(graphics_settings.get("vegetation_quality", 3)):
 		_scatter_vegetation()
 	else:
 		_update_vegetation_ranges()

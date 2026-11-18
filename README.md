@@ -1,17 +1,16 @@
 # Dino Genesis
 
-Dino Genesis ist ein **Godot-4-Projekt** und verwendet GDScript. Die prozedurale, begehbare Welt ist 280 × 280 Meter groß und verbindet sanfte Ebenen mit vereinzelten Hügeln und Bergrücken, Wegen, Wäldern und variierenden Felsformationen. Jede neue Welt erhält einen Seed, der im Pausemenü kopiert werden kann. Markt, Labor und Zoo liegen als Gruppe beieinander. Die Gebäude haben unterschiedliche Formen, offene Eingänge und begehbare Innenräume. Geländeoberflächen werden mit einem opaken, zweiseitigen PBR-Shader schattiert. Vegetation wird in räumlichen Chunks mit GPU-Multimeshes gezeichnet; Bäume besitzen verästelte Stämme, mehrere Blätterkronen und eine vereinfachte Baum-LOD. Für Bäume und Felsen erzeugen PBR-Shader zusätzliche prozedurale Farb- und Oberflächendetails.
+Dino Genesis wird als **Unity-Spiel mit C# und URP** entwickelt. Das aktive Unity-Projekt liegt unter [`UnityProject/`](./UnityProject/); `main.py` startet dieses Unity-Projekt. Die bisherige Godot-Fassung im Repository ist ein separater Prototyp und wird von diesem Launcher nicht verwendet.
 
 ## Starten
 
-1. Godot 4.3 oder neuer installieren.
-2. Godot öffnen und **Import** wählen.
-3. Die Datei `project.godot` in diesem Ordner auswählen.
-4. Das Projekt starten (F6 oder F5).
+1. Unity 2022.3.17f1 über Unity Hub installieren.
+2. Im Repository-Ordner `python3 main.py` ausführen. Der Launcher richtet das Unity-Projekt ein und öffnet es im Unity Editor.
+3. Im Editor die Startszene `Assets/DinoGenesis/Scenes/Main.unity` verwenden und **Play** drücken.
 
-Auch in VS Code kann das Projekt bearbeitet werden; zum Ausführen muss Godot installiert sein. Python, Ursina und pip sind für die Godot-Version nicht erforderlich. Für ältere Startanleitungen ist `main.py` als Kompatibilitäts-Launcher vorhanden: `python3 main.py` sucht Godot und öffnet dieses Projekt. Falls Godot nicht automatisch gefunden wird, Godot direkt starten oder `GODOT_EXECUTABLE` auf die ausführbare Datei setzen.
+Falls Unity nicht am Standardpfad installiert ist, `UNITY_EDITOR_PATH` auf die ausführbare Unity-Datei setzen. Details zum Projektstart und macOS-Build stehen in [`UnityProject/README.md`](./UnityProject/README.md).
 
-Die Steuerung lässt sich mit `godot --path . --script res://tests/input_smoke.gd` automatisiert prüfen.
+**Hinweis:** Die nachfolgenden Abschnitte zu Steuerung, Grafik und Spielablauf beschreiben den vorhandenen Godot-Prototyp, nicht den aktuellen Unity-Stand. Unity wird phasenweise entwickelt; Insel, First-Person-Steuerung, Ausgrabung sowie Inventar und Markt gehören zu den Phasen 1 bis 3.
 
 ## Steuerung
 
@@ -29,7 +28,7 @@ Die Steuerung lässt sich mit `godot --path . --script res://tests/input_smoke.g
 
 ## Grafik und Leistung
 
-Die Grafikoptionen werden sofort angewendet und im Spielstand gespeichert. Renderweite, Sichtweiten, Vegetationsdichte, Schatten, MSAA und Nebel bieten jeweils vier Stufen. Die Welt nutzt Godots Frustum Culling sowie distanzbegrenzte, nach Bereichen gruppierte MultiMesh-Instanzen. Baked Occlusion Culling ist nicht aktiviert: Die Welt wird zur Laufzeit prozedural erzeugt und enthält keine gebackenen Occluder. Desktop nutzt Forward+ für SSAO, SSIL, SSR und volumetrischen Nebel; mobile Geräte verwenden weiterhin GL Compatibility.
+Das Spiel startet standardmäßig mit allen Grafikoptionen auf **Ultra** und hebt ältere Spielstände einmalig auf dieses Profil an. Forward+ nutzt dabei 8× MSAA plus FXAA, 1,35× 3D-Supersampling, hochauflösende Schatten, sky-basierte indirekte Beleuchtung, SDFGI, SSAO, SSIL, SSR und volumetrischen Nebel. Die Ultra-Sichtweite beträgt 760 m; Vegetation und Gelände nutzen größere Dichten und Sichtweiten. Diese Einstellung ist entsprechend anspruchsvoll und lässt sich im Grafikmenü jederzeit reduzieren. Die Welt nutzt Godots Frustum Culling sowie distanzbegrenzte, nach Bereichen gruppierte MultiMesh-Instanzen. Baked Occlusion Culling ist nicht aktiviert: Die Welt wird zur Laufzeit prozedural erzeugt und enthält keine gebackenen Occluder. Mobile Geräte verwenden weiterhin GL Compatibility und unterstützen nicht alle Forward+-Effekte.
 
 ## Spielablauf
 

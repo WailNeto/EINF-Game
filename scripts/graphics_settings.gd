@@ -25,14 +25,14 @@ const LABELS := {
 
 static func defaults() -> Dictionary:
 	return {
-		"render_distance": 2,
-		"texture_quality": 2,
-		"shadow_quality": 2,
-		"vegetation_quality": 2,
-		"anti_aliasing": 1,
-		"vegetation_distance": 2,
+		"render_distance": 3,
+		"texture_quality": 3,
+		"shadow_quality": 3,
+		"vegetation_quality": 3,
+		"anti_aliasing": 3,
+		"vegetation_distance": 3,
 		"building_distance": 3,
-		"fog_quality": 2,
+		"fog_quality": 3,
 	}
 
 

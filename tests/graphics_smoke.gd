@@ -16,6 +16,12 @@ func _run_test() -> void:
 	var player: CharacterBody3D = game.get_node("Player")
 	var camera: Camera3D = player.get("camera")
 	var hud: CanvasLayer = game.get_node("HUD")
+	var sun: DirectionalLight3D = world.get("sun")
+	for setting: String in game.graphics_settings:
+		if int(game.graphics_settings[setting]) != 3:
+			push_error("The game did not start with the %s option set to Ultra" % setting)
+			quit(1)
+			return
 	if float(world.get("world_size")) != 280.0:
 		push_error("Expected the expanded 280 m world")
 		quit(1)
@@ -117,8 +123,17 @@ func _run_test() -> void:
 	for chunk: Dictionary in chunks.values():
 		has_broadleaf = has_broadleaf or chunk.has("tree_0")
 		has_rock = has_rock or chunk.has("rock_0")
+	var tree_count := 0
+	for chunk: Dictionary in chunks.values():
+		for tree_kind: String in ["tree_0", "tree_1", "tree_2"]:
+			if chunk.has(tree_kind):
+				tree_count += chunk[tree_kind].size()
 	if not has_broadleaf or not has_rock:
 		push_error("Detailed tree and rock meshes were not instanced")
+		quit(1)
+		return
+	if tree_count < 900:
+		push_error("Ultra vegetation density was not applied: %d trees" % tree_count)
 		quit(1)
 		return
 	await physics_frame
@@ -166,16 +181,21 @@ func _run_test() -> void:
 	await process_frame
 	var environment: Environment = world.get("environment")
 	var far_terrain: Array = world.get("terrain_lod_far")
-	if camera.far != 620.0 or far_terrain[0].visibility_range_end != 620.0 or not environment.ssao_enabled or not environment.ssr_enabled or not environment.volumetric_fog_enabled:
-		push_error("Render distance or Forward+ lighting options were not applied")
+	if camera.far != 760.0 or far_terrain[0].visibility_range_end != 760.0 or not environment.ssao_enabled or not environment.ssil_enabled or not environment.ssr_enabled or not environment.sdfgi_enabled or not environment.volumetric_fog_enabled:
+		push_error("Ultra render distance or Forward+ lighting options were not applied")
 		quit(1)
 		return
-	if root.get_viewport().msaa_3d != Viewport.MSAA_8X or float(ground_material.get_shader_parameter("detail_scale")) != 1.5:
-		push_error("Anti-aliasing or terrain detail settings were not applied")
+	if root.get_viewport().msaa_3d != Viewport.MSAA_8X or root.get_viewport().screen_space_aa != Viewport.SCREEN_SPACE_AA_FXAA or not is_equal_approx(root.get_viewport().scaling_3d_scale, 1.35) or not is_equal_approx(float(ground_material.get_shader_parameter("detail_scale")), 2.0):
+		push_error("Ultra anti-aliasing, render scaling, or terrain detail settings were not applied: MSAA=%d FXAA=%d scale=%.2f detail=%.2f" % [
+			root.get_viewport().msaa_3d,
+			root.get_viewport().screen_space_aa,
+			root.get_viewport().scaling_3d_scale,
+			float(ground_material.get_shader_parameter("detail_scale")),
+		])
 		quit(1)
 		return
-	if int(world.get("vegetation_quality")) != 3:
-		push_error("Vegetation density did not update")
+	if int(world.get("vegetation_quality")) != 3 or sun.directional_shadow_max_distance != 340.0:
+		push_error("Ultra vegetation density or shadow distance did not update")
 		quit(1)
 		return
 
